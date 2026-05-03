@@ -85,6 +85,12 @@ web_modules/
 .env.production.local
 .env.local
 
+# Local deployment notes (machine-specific, not for upstream)
+.deployment.md
+
+# Local markdown-vault MCP metadata (not for upstream)
+docs/.markdown_vault_mcp/
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
