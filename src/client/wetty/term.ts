@@ -16,6 +16,109 @@ const isMobile =
     navigator.userAgent,
   );
 
+// Browsers cap AudioContext instances per page (~6 in Chrome). Reuse one.
+let audioCtx: AudioContext | undefined;
+
+function getAudioCtx(): AudioContext | undefined {
+  if (audioCtx) return audioCtx;
+  const win = window as unknown as {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const Ctx = win.AudioContext ?? win.webkitAudioContext;
+  if (!Ctx) return undefined;
+  try {
+    audioCtx = new Ctx();
+  } catch {
+    return undefined;
+  }
+  return audioCtx;
+}
+
+function beep(): void {
+  const ctx = getAudioCtx();
+  if (!ctx) return;
+  const play = (): void => {
+    try {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.frequency.value = 880;
+      o.connect(g);
+      g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.15, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      o.start();
+      o.stop(ctx.currentTime + 0.15);
+    } catch {
+      // ignore
+    }
+  };
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(play, (): void => {
+      // resume can reject before user gesture; just skip the beep
+    });
+  } else {
+    play();
+  }
+}
+
+let blinkInterval: number | undefined;
+let blinkOn = false;
+let baseFaviconHref: string | undefined;
+
+function getFaviconLink(): HTMLLinkElement | null {
+  return document.querySelector<HTMLLinkElement>(
+    'link[rel="icon"][type="image/svg+xml"]',
+  );
+}
+
+function setFavicon(href: string): void {
+  const link = getFaviconLink();
+  if (link) link.href = href;
+}
+
+function startBlink(): void {
+  if (blinkInterval !== undefined) return;
+  if (!document.hidden && document.hasFocus()) return;
+  if (!baseFaviconHref) {
+    const link = getFaviconLink();
+    if (!link) return;
+    baseFaviconHref = link.href;
+  }
+  const baseHref = baseFaviconHref;
+  const alertHref = baseHref.replace('favicon.svg', 'favicon-alert.svg');
+  blinkOn = true;
+  blinkInterval = window.setInterval(() => {
+    setFavicon(blinkOn ? alertHref : baseHref);
+    blinkOn = !blinkOn;
+  }, 600);
+}
+
+function stopBlink(): void {
+  if (blinkInterval === undefined) return;
+  window.clearInterval(blinkInterval);
+  blinkInterval = undefined;
+  if (baseFaviconHref) setFavicon(baseFaviconHref);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) stopBlink();
+});
+window.addEventListener('focus', stopBlink);
+
+function showNotification(title: string, body: string, sound = false): void {
+  startBlink();
+  if (typeof Notification === 'undefined') return;
+  if (Notification.permission !== 'granted') return;
+  if (sound) beep();
+  try {
+    // eslint-disable-next-line no-new
+    new Notification(title, { body });
+  } catch {
+    // Some browsers (Safari) throw when constructing Notification directly.
+  }
+}
+
 export class Term extends Terminal {
   socket: Socket;
   fitAddon: FitAddon;
@@ -36,7 +139,26 @@ export class Term extends Terminal {
         // WebGL not available — DOM renderer will be used
       }
     }
+    this.registerNotificationHandlers();
     this.onTitleChange(setTitle);
+  }
+
+  /**
+   * Register OSC escape-sequence handlers for desktop notifications.
+   *   OSC 9   ; <body>             ST   (iTerm2)
+   *   OSC 777 ; notify ; <title> ; <body> ST  (urxvt)
+   */
+  private registerNotificationHandlers(): void {
+    this.parser.registerOscHandler(9, (data: string): boolean => {
+      showNotification('Terminal', data);
+      return true;
+    });
+    this.parser.registerOscHandler(777, (data: string): boolean => {
+      const parts = data.split(';');
+      if (parts[0] !== 'notify') return false;
+      showNotification(parts[1] || 'Terminal', parts[2] || '', true);
+      return true;
+    });
   }
 
   resizeTerm(): void {
@@ -237,6 +359,20 @@ export function terminal(socket: Socket): Term | undefined {
   termElement.innerHTML = '';
   term.open(termElement);
   configureTerm(term);
+  if (
+    typeof Notification !== 'undefined' &&
+    Notification.permission === 'default'
+  ) {
+    termElement.addEventListener(
+      'click',
+      () => {
+        if (Notification.permission === 'default') {
+          void Notification.requestPermission();
+        }
+      },
+      { once: true },
+    );
+  }
   window.onresize = function onResize() {
     term.resizeTerm();
   };
