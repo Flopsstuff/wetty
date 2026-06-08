@@ -23,19 +23,28 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  // Only handle same-origin GET requests. Everything else — POST (socket.io
+  // long-polling), cross-origin requests, and auth-proxy redirects (e.g.
+  // Cloudflare Access) — is left untouched so it hits the network directly.
+  // The Cache API rejects non-GET requests, and intercepting cross-origin
+  // redirects would otherwise surface as bogus 503s.
+  if (request.method !== 'GET') return;
+  if (new URL(request.url).origin !== self.location.origin) return;
+
   event.respondWith(
-    fetch(event.request)
+    fetch(request)
       .then((response) => {
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE).then((cache) => {
-            cache.put(event.request, clone);
+            cache.put(request, clone);
           });
         }
         return response;
       })
       .catch(() =>
-        caches.match(event.request).then(
+        caches.match(request).then(
           (cached) => cached ?? new Response('Offline', { status: 503 }),
         ),
       ),
