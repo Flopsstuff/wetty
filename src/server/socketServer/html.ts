@@ -11,7 +11,7 @@ const render = (title: string, base: string): string => `<!doctype html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#1e1e1e">
     <link rel="icon" type="image/x-icon" href="${base}/client/favicon.ico">
-    <link rel="manifest" href="${base}/client/manifest.json">
+    <link rel="manifest" href="${base}/client/manifest.json" crossorigin="use-credentials">
     <title>${title}</title>
     <link rel="stylesheet" href="${base}/client/wetty.css" />
   </head>
