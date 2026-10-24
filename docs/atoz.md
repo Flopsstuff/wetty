@@ -14,8 +14,9 @@ to use them but they are not required to use WeTTY in general.
 
 ## Required dependencies
 
-`Node` - WeTTY requires node v20 or greater. We will install this locally for a
-non root user later in the guide.
+`Node` - WeTTY requires node `^22.23.4 || ^24.22.1 || >=26.12.1`; the lines left
+out of that range are EOL. We will install this locally for a non root user
+later in the guide.
 
 `python` - This should be installed by default but we will include it in our
 `apt-get` command to be safe.
@@ -79,8 +80,8 @@ This command will download and install `nvm` and reload our shell.
 curl -sL https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash && source ~/.profile
 ```
 
-This command will install the latest version of the v20 branch, which is the
-minimum required version for WeTTY.
+This command will install the latest version of the v22 branch, which is the
+oldest line WeTTY accepts.
 
 ```bash
 nvm install 22
@@ -95,7 +96,7 @@ node -v
 Your result should look something like this.
 
 ```bash
-v20.2.0
+v22.23.4
 ```
 
 **Note:** There is an important consideration with the `nvm` method. `node` is
