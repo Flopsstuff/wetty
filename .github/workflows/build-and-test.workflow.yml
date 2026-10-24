@@ -29,6 +29,9 @@ jobs:
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
+          # Without this, setup-node prefers the runner image's cached 22.x,
+          # which lags the security releases this pin exists to pick up.
+          check-latest: true
           cache: 'pnpm'
 
       - name: Install dependencies
