@@ -12,6 +12,20 @@ when it succeeds it generates a `package-lock.json` that conflicts with
 `pnpm-lock.yaml`. If you see a stray `package-lock.json`, delete it before
 running anything.
 
+## Node runtime floor
+
+`engines.node` is `^22.23.4 || ^24.22.1 || >=26.12.1` — the three Node lines
+that carry the fix for the RCE in Node's built-in Brotli decoder
+(CVE-2026-111497). It is a range of lines rather than a plain `>=` because 23.x
+and 25.x are EOL and will never be patched. The floor matters here more than in
+a library: `express@5` + `compression` means wetty decompresses request bodies
+at the HTTP edge, so an unpatched runtime is reachable from outside.
+
+`containers/wetty/Dockerfile` pins `node:22.23.4-alpine` instead of the floating
+`node:22-alpine` — the floating tag resolves to a patched build today, but a
+warm build cache can keep an older 22.x, and a pinned tag makes a runtime bump
+visible in the diff. Bump both deliberately when the next runtime CVE lands.
+
 ## Common commands
 
 ```
@@ -116,8 +130,8 @@ as `*.spec.ts`. Currently only two suites: `src/client/wetty/download.spec.ts`
 
 The production checkout is managed by systemd. Read
 **[.deployment.md](./.deployment.md)** (gitignored) for the host, unit file,
-request path, deploy/restart commands, and gotchas — most importantly
-that systemd ignores `conf/config.json5` and passes everything via CLI flags.
+request path, deploy/restart commands, and gotchas — most importantly that
+systemd ignores `conf/config.json5` and passes everything via CLI flags.
 
 ## Git remotes
 
